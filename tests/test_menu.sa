@@ -1,0 +1,5 @@
+# @use ../lib/ui.sa
+# Non-interactive smoke test of UI helpers only
+banner()
+print_menu()
+print("UI helpers OK")

@@ -1,0 +1,28 @@
+# @use ../lib/ui.sa
+# @use ../lib/codec.sa
+# @use ../lib/text.sa
+# @use ../lib/numbers.sa
+# @use ../lib/jsonutil.sa
+
+# Integration smoke: one call per feature surface
+
+print("banner:")
+banner()
+
+print("codec: " + do_base64_encode("Man") + " / " + do_url_encode("a b"))
+print("hash: " + digest_sha256("abc").slice(0, 8) + "...")
+print("case: " + to_snake("Hello World") + " / " + to_camel("hello_world"))
+r = analyze_text("alpha beta alpha")
+print("text: words=" + str(r["words"]) + " top=" + r["top_word"])
+print("num: " + dec_to_bin("10") + " / " + hex_to_dec("ff"))
+print("json: " + json_minify("{\"z\":1,\"a\":[true]}"))
+print(json_format("{\"a\":1}", 2))
+
+try {
+  json_validate("[1,]")
+  print("FAIL json")
+} catch (e) {
+  print("json err OK")
+}
+
+print("INTEGRATION OK")

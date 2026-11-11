@@ -1,0 +1,413 @@
+# Quantum DevKit — JSON Validator + Formatter
+#
+# Design: everything works on the ORIGINAL text. Quantum's native JSON.parse /
+# JSON.stringify are NOT used, because they are permissive (accept bad JSON) and
+# they alter data (e.g. "\u00e9" -> "u00e9", 1.0 -> 1, big integers -> 1.2e+19).
+#
+# Public functions:
+#   json_check(text)          throws "JSON error at position N: ..." if invalid
+#   json_validate(text)       json_check, returns true
+#   json_kind(text)           "object" | "array" | "string" | "number" | "boolean" | "null"
+#   json_format(text, indent) pretty-print (indent spaces), or minify when indent <= 0
+#   json_minify(text)         remove whitespace outside strings
+
+fn is_ws(c) {
+  return c == " " || c == "\t" || c == "\n" || c == "\r"
+}
+
+fn is_digit(c) {
+  return c >= "0" && c <= "9"
+}
+
+fn is_hex_char(c) {
+  return (c >= "0" && c <= "9") || (c >= "a" && c <= "f") || (c >= "A" && c <= "F")
+}
+
+fn json_fail(pos, msg) {
+  throw "JSON error at position " + str(pos) + ": " + msg
+}
+
+# Validator: a small state machine (no recursion, so nesting depth is not limited).
+# `expect` says what token is allowed next:
+#   value        a value must come (after ':' or after ',' in an array)
+#   value_or_end a value or ']' (right after '[')
+#   key          a key string must come (after ',' in an object)
+#   key_or_end   a key string or '}' (right after '{')
+#   colon        ':' must come (after a key)
+#   after_value  ',' or a closing bracket (after any complete value)
+fn json_check(text) {
+  if text == null {
+    throw "JSON input must not be empty"
+  }
+  s = str(text)
+  if s.trim() == "" {
+    throw "JSON input must not be empty"
+  }
+  n = len(s)
+  pos = 0
+  stack = []
+  expect = "value"
+  in_string = false
+  is_key = false
+
+  while pos < n {
+    c = s[pos]
+
+    # --- inside a string ---
+    if in_string {
+      if c == "\\" {
+        pos = pos + 1
+        if pos >= n {
+          json_fail(pos, "unterminated escape")
+        }
+        e = s[pos]
+        if e == "u" {
+          k = 1
+          while k <= 4 {
+            if pos + k >= n {
+              json_fail(n, "incomplete \\u escape")
+            }
+            if !is_hex_char(s[pos + k]) {
+              json_fail(pos + k, "invalid hex digit in \\u escape")
+            }
+            k = k + 1
+          }
+          pos = pos + 5
+          continue
+        }
+        if !(e == "\"" || e == "\\" || e == "/" || e == "b" || e == "f" || e == "n" || e == "r" || e == "t") {
+          json_fail(pos, "invalid escape \\" + e)
+        }
+        pos = pos + 1
+        continue
+      }
+      if c == "\"" {
+        in_string = false
+        if is_key {
+          expect = "colon"
+        } else {
+          expect = "after_value"
+        }
+        pos = pos + 1
+        continue
+      }
+      if ord(c) < 32 {
+        json_fail(pos, "control character inside string (must be escaped)")
+      }
+      pos = pos + 1
+      continue
+    }
+
+    # --- outside strings ---
+    if is_ws(c) {
+      pos = pos + 1
+      continue
+    }
+
+    if c == "\"" {
+      if expect == "value" || expect == "value_or_end" {
+        is_key = false
+      } else if expect == "key" || expect == "key_or_end" {
+        is_key = true
+      } else if expect == "colon" {
+        json_fail(pos, "expected ':' after object key")
+      } else {
+        json_fail(pos, "unexpected string")
+      }
+      in_string = true
+      pos = pos + 1
+      continue
+    }
+
+    if c == "{" || c == "[" {
+      if !(expect == "value" || expect == "value_or_end") {
+        json_fail(pos, "unexpected '" + c + "'")
+      }
+      stack.push(c)
+      if c == "{" {
+        expect = "key_or_end"
+      } else {
+        expect = "value_or_end"
+      }
+      pos = pos + 1
+      continue
+    }
+
+    if c == "}" {
+      if len(stack) == 0 || stack[len(stack) - 1] != "{" {
+        json_fail(pos, "unexpected '}'")
+      }
+      if expect == "key" {
+        json_fail(pos, "trailing comma in object")
+      }
+      if expect == "colon" {
+        json_fail(pos, "expected ':' after object key")
+      }
+      if expect == "value" {
+        json_fail(pos, "expected a value before '}'")
+      }
+      stack.pop()
+      expect = "after_value"
+      pos = pos + 1
+      continue
+    }
+
+    if c == "]" {
+      if len(stack) == 0 || stack[len(stack) - 1] != "[" {
+        json_fail(pos, "unexpected ']'")
+      }
+      if expect == "value" {
+        json_fail(pos, "trailing comma in array")
+      }
+      stack.pop()
+      expect = "after_value"
+      pos = pos + 1
+      continue
+    }
+
+    if c == ":" {
+      if expect != "colon" {
+        json_fail(pos, "unexpected ':'")
+      }
+      expect = "value"
+      pos = pos + 1
+      continue
+    }
+
+    if c == "," {
+      if expect != "after_value" || len(stack) == 0 {
+        json_fail(pos, "unexpected ','")
+      }
+      if stack[len(stack) - 1] == "{" {
+        expect = "key"
+      } else {
+        expect = "value"
+      }
+      pos = pos + 1
+      continue
+    }
+
+    # --- literals and numbers: only where a value is allowed ---
+    if !(expect == "value" || expect == "value_or_end") {
+      json_fail(pos, "unexpected character '" + c + "'")
+    }
+
+    if c == "t" {
+      if pos + 4 > n || s.slice(pos, pos + 4) != "true" {
+        json_fail(pos, "expected 'true'")
+      }
+      pos = pos + 4
+      expect = "after_value"
+      continue
+    }
+    if c == "f" {
+      if pos + 5 > n || s.slice(pos, pos + 5) != "false" {
+        json_fail(pos, "expected 'false'")
+      }
+      pos = pos + 5
+      expect = "after_value"
+      continue
+    }
+    if c == "n" {
+      if pos + 4 > n || s.slice(pos, pos + 4) != "null" {
+        json_fail(pos, "expected 'null'")
+      }
+      pos = pos + 4
+      expect = "after_value"
+      continue
+    }
+    if c == "-" || is_digit(c) {
+      if c == "-" {
+        pos = pos + 1
+        if pos >= n || !is_digit(s[pos]) {
+          json_fail(pos, "invalid number: digit expected after '-'")
+        }
+      }
+      if s[pos] == "0" {
+        pos = pos + 1
+      } else {
+        while pos < n && is_digit(s[pos]) {
+          pos = pos + 1
+        }
+      }
+      if pos < n && s[pos] == "." {
+        pos = pos + 1
+        if pos >= n || !is_digit(s[pos]) {
+          json_fail(pos, "invalid number: digit expected after decimal point")
+        }
+        while pos < n && is_digit(s[pos]) {
+          pos = pos + 1
+        }
+      }
+      if pos < n && (s[pos] == "e" || s[pos] == "E") {
+        pos = pos + 1
+        if pos < n && (s[pos] == "+" || s[pos] == "-") {
+          pos = pos + 1
+        }
+        if pos >= n || !is_digit(s[pos]) {
+          json_fail(pos, "invalid number: digit expected in exponent")
+        }
+        while pos < n && is_digit(s[pos]) {
+          pos = pos + 1
+        }
+      }
+      expect = "after_value"
+      continue
+    }
+
+    json_fail(pos, "unexpected character '" + c + "'")
+  }
+
+  if in_string {
+    json_fail(n, "unterminated string")
+  }
+  if len(stack) > 0 {
+    json_fail(n, "unclosed '" + stack[len(stack) - 1] + "'")
+  }
+  if expect != "after_value" {
+    json_fail(n, "unexpected end of input")
+  }
+}
+
+fn json_validate(text) {
+  json_check(text)
+  return true
+}
+
+fn json_kind(text) {
+  s = str(text).trim()
+  c = s[0]
+  if c == "{" {
+    return "object"
+  }
+  if c == "[" {
+    return "array"
+  }
+  if c == "\"" {
+    return "string"
+  }
+  if c == "t" || c == "f" {
+    return "boolean"
+  }
+  if c == "n" {
+    return "null"
+  }
+  return "number"
+}
+
+# Remove whitespace outside strings (assumes the text was already validated).
+fn json_compact(text) {
+  out = ""
+  in_string = false
+  escape = false
+  i = 0
+  n = len(text)
+  while i < n {
+    c = text[i]
+    if in_string {
+      out = out + c
+      if escape {
+        escape = false
+      } else if c == "\\" {
+        escape = true
+      } else if c == "\"" {
+        in_string = false
+      }
+    } else if c == "\"" {
+      in_string = true
+      out = out + c
+    } else if !is_ws(c) {
+      out = out + c
+    }
+    i = i + 1
+  }
+  return out
+}
+
+fn json_spaces(count) {
+  sp = ""
+  p = 0
+  while p < count {
+    sp = sp + " "
+    p = p + 1
+  }
+  return sp
+}
+
+# Pretty-print validated JSON text. Empty {} and [] stay on one line.
+fn json_pretty(text, indent) {
+  compact = json_compact(text)
+  out = ""
+  level = 0
+  in_string = false
+  escape = false
+  i = 0
+  n = len(compact)
+  while i < n {
+    c = compact[i]
+    if in_string {
+      out = out + c
+      if escape {
+        escape = false
+      } else if c == "\\" {
+        escape = true
+      } else if c == "\"" {
+        in_string = false
+      }
+      i = i + 1
+      continue
+    }
+    if c == "\"" {
+      in_string = true
+      out = out + c
+      i = i + 1
+      continue
+    }
+    if c == "{" || c == "[" {
+      if i + 1 < n && (compact[i + 1] == "}" || compact[i + 1] == "]") {
+        out = out + c + compact[i + 1]
+        i = i + 2
+        continue
+      }
+      level = level + 1
+      out = out + c + "\n" + json_spaces(indent * level)
+      i = i + 1
+      continue
+    }
+    if c == "}" || c == "]" {
+      level = level - 1
+      out = out + "\n" + json_spaces(indent * level) + c
+      i = i + 1
+      continue
+    }
+    if c == "," {
+      out = out + c + "\n" + json_spaces(indent * level)
+      i = i + 1
+      continue
+    }
+    if c == ":" {
+      out = out + ": "
+      i = i + 1
+      continue
+    }
+    out = out + c
+    i = i + 1
+  }
+  return out
+}
+
+fn json_format(text, indent) {
+  json_check(text)
+  if indent == null {
+    indent = 2
+  }
+  if indent <= 0 {
+    return json_compact(text)
+  }
+  return json_pretty(text, indent)
+}
+
+fn json_minify(text) {
+  json_check(text)
+  return json_compact(text)
+}

@@ -1,0 +1,50 @@
+# @use ../lib/numbers.sa
+
+print("=== dec → bin/hex ===")
+print(dec_to_bin("10"))
+print(dec_to_bin("0"))
+print(dec_to_bin("-5"))
+print(dec_to_hex("255"))
+print(dec_to_hex("0"))
+print(dec_to_hex("-16"))
+
+print("=== bin/hex → dec ===")
+print(bin_to_dec("1010"))
+print(bin_to_dec("0b1010"))
+print(bin_to_dec("-101"))
+print(hex_to_dec("ff"))
+print(hex_to_dec("0xFF"))
+print(hex_to_dec("-10"))
+
+print("=== bin ↔ hex ===")
+print(bin_to_hex("11111111"))
+print(hex_to_bin("ff"))
+print(hex_to_bin("0xA"))
+
+print("=== invalid ===")
+try {
+  bin_to_dec("102")
+  print("FAIL bad bin")
+} catch (e) {
+  print("OK bad bin: " + str(e))
+}
+try {
+  hex_to_dec("gg")
+  print("FAIL bad hex")
+} catch (e) {
+  print("OK bad hex: " + str(e))
+}
+try {
+  dec_to_bin("")
+  print("FAIL empty")
+} catch (e) {
+  print("OK empty: " + str(e))
+}
+try {
+  dec_to_bin("12a")
+  print("FAIL bad dec")
+} catch (e) {
+  print("OK bad dec: " + str(e))
+}
+
+print("ALL NUMBER TESTS DONE")

@@ -1,0 +1,232 @@
+# Quantum DevKit — Case Converter + Text Analyzer
+
+fn require_text(s, label) {
+  if s == null {
+    throw label + " must not be empty"
+  }
+  t = str(s)
+  if t.trim() == "" {
+    throw label + " must not be empty"
+  }
+  return t
+}
+
+# --- Case conversion ---
+
+fn to_upper(text) {
+  return require_text(text, "Input").upper()
+}
+
+fn to_lower(text) {
+  return require_text(text, "Input").lower()
+}
+
+fn to_title(text) {
+  text = require_text(text, "Input").trim()
+  # Capitalize first letter of each word (space-separated)
+  parts = text.lower().split(" ")
+  out = []
+  i = 0
+  while i < len(parts) {
+    w = parts[i]
+    if len(w) == 0 {
+      out.push("")
+    } else {
+      first = w[0].upper()
+      rest = ""
+      if len(w) > 1 {
+        rest = w.slice(1, len(w))
+      }
+      out.push(first + rest)
+    }
+    i = i + 1
+  }
+  # join with space, skip empty segments from multiple spaces
+  result = ""
+  j = 0
+  first = true
+  while j < len(out) {
+    if len(out[j]) > 0 {
+      if !first {
+        result = result + " "
+      }
+      result = result + out[j]
+      first = false
+    }
+    j = j + 1
+  }
+  return result
+}
+
+fn to_snake(text) {
+  text = require_text(text, "Input").trim()
+  # Insert _ before uppercase letters (camel/Pascal) then lower + spaces→_
+  result = ""
+  i = 0
+  while i < len(text) {
+    c = text[i]
+    if c == " " || c == "-" || c == "\t" {
+      if len(result) > 0 && result[len(result) - 1] != "_" {
+        result = result + "_"
+      }
+    } else if c >= "A" && c <= "Z" {
+      if i > 0 && result[len(result) - 1] != "_" {
+        result = result + "_"
+      }
+      result = result + c.lower()
+    } else {
+      result = result + c.lower()
+    }
+    i = i + 1
+  }
+  # collapse multiple underscores
+  cleaned = ""
+  k = 0
+  while k < len(result) {
+    ch = result[k]
+    if ch == "_" {
+      if len(cleaned) == 0 || cleaned[len(cleaned) - 1] != "_" {
+        cleaned = cleaned + "_"
+      }
+    } else {
+      cleaned = cleaned + ch
+    }
+    k = k + 1
+  }
+  # trim leading/trailing _
+  while len(cleaned) > 0 && cleaned[0] == "_" {
+    cleaned = cleaned.slice(1, len(cleaned))
+  }
+  while len(cleaned) > 0 && cleaned[len(cleaned) - 1] == "_" {
+    cleaned = cleaned.slice(0, len(cleaned) - 1)
+  }
+  return cleaned
+}
+
+fn to_camel(text) {
+  text = require_text(text, "Input").trim()
+  # Split on spaces, hyphens, underscores
+  normalized = ""
+  i = 0
+  while i < len(text) {
+    c = text[i]
+    if c == "-" || c == "_" {
+      normalized = normalized + " "
+    } else {
+      normalized = normalized + c
+    }
+    i = i + 1
+  }
+  parts = normalized.lower().split(" ")
+  result = ""
+  j = 0
+  while j < len(parts) {
+    w = parts[j]
+    if len(w) == 0 {
+      j = j + 1
+      continue
+    }
+    if j == 0 {
+      result = result + w
+    } else {
+      first = w[0].upper()
+      rest = ""
+      if len(w) > 1 {
+        rest = w.slice(1, len(w))
+      }
+      result = result + first + rest
+    }
+    j = j + 1
+  }
+  return result
+}
+
+# --- Text analysis ---
+
+fn analyze_text(text) {
+  text = require_text(text, "Input")
+
+  chars = len(text)
+  # lines: split on \n
+  line_parts = text.split("\n")
+  lines = len(line_parts)
+
+  # words: split on whitespace (space/tab/newline approximated via replace)
+  # Simple approach: replace \n and \t with space then split
+  flat = text.replace("\n", " ").replace("\t", " ")
+  raw_words = flat.split(" ")
+  words_list = []
+  wi = 0
+  while wi < len(raw_words) {
+    w = raw_words[wi].trim()
+    if len(w) > 0 {
+      words_list.push(w)
+    }
+    wi = wi + 1
+  }
+  word_count = len(words_list)
+
+  # sentences: count . ! ? that end sentences (rough)
+  sentence_count = 0
+  si = 0
+  while si < len(text) {
+    c = text[si]
+    if c == "." || c == "!" || c == "?" {
+      sentence_count = sentence_count + 1
+    }
+    si = si + 1
+  }
+  if sentence_count == 0 && word_count > 0 {
+    sentence_count = 1
+  }
+
+  # top word frequency (case-insensitive)
+  freq = {}
+  fi = 0
+  while fi < len(words_list) {
+    key = words_list[fi].lower()
+    # strip common trailing punctuation for frequency
+    while len(key) > 0 {
+      last = key[len(key) - 1]
+      if last == "." || last == "," || last == "!" || last == "?" || last == ";" || last == ":" {
+        key = key.slice(0, len(key) - 1)
+      } else {
+        break
+      }
+    }
+    if len(key) == 0 {
+      fi = fi + 1
+      continue
+    }
+    if freq[key] == null {
+      freq[key] = 1
+    } else {
+      freq[key] = freq[key] + 1
+    }
+    fi = fi + 1
+  }
+
+  # find max
+  top_word = ""
+  top_count = 0
+  keys_arr = freq.keys()
+  ki = 0
+  while ki < len(keys_arr) {
+    k = keys_arr[ki]
+    c = freq[k]
+    if c > top_count {
+      top_count = c
+      top_word = k
+    }
+    ki = ki + 1
+  }
+
+  return {
+    "chars": chars,
+    "words": word_count,
+    "lines": lines,
+    "sentences": sentence_count,
+    "top_word": top_word,
+    "top_count": top_count
+  }
+}

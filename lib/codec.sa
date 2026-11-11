@@ -1,0 +1,118 @@
+# Quantum DevKit — Base64 / URL / Hash helpers (natives + validation)
+
+fn require_non_empty(s, label) {
+  if s == null || str(s).trim() == "" {
+    throw label + " must not be empty"
+  }
+  return str(s)
+}
+
+fn is_b64_char(c) {
+  return (c >= "A" && c <= "Z") || (c >= "a" && c <= "z") || (c >= "0" && c <= "9") || c == "+" || c == "/"
+}
+
+fn do_base64_encode(text) {
+  text = require_non_empty(text, "Input")
+  try {
+    return base64_encode(text)
+  } catch (e) {
+    throw "base64_encode failed: " + str(e)
+  }
+}
+
+fn do_base64_decode(text) {
+  text = require_non_empty(text, "Input")
+  cleaned = text.trim()
+  n = len(cleaned)
+  if n % 4 != 0 {
+    throw "Invalid Base64 length (must be multiple of 4, got " + str(n) + ")"
+  }
+  # padding only at end, max two '='
+  i = 0
+  while i < n {
+    c = cleaned[i]
+    if c == "=" {
+      if i < n - 2 {
+        throw "Invalid Base64 padding at position " + str(i)
+      }
+      # remaining must be '='
+      j = i
+      while j < n {
+        if cleaned[j] != "=" {
+          throw "Invalid Base64 padding at position " + str(j)
+        }
+        j = j + 1
+      }
+      if n - i > 2 {
+        throw "Invalid Base64: more than two padding characters"
+      }
+      break
+    }
+    if !is_b64_char(c) {
+      throw "Invalid Base64 character at position " + str(i) + ": '" + c + "'"
+    }
+    i = i + 1
+  }
+  try {
+    return base64_decode(cleaned)
+  } catch (e) {
+    throw "base64_decode failed: " + str(e)
+  }
+}
+
+fn do_url_encode(text) {
+  text = require_non_empty(text, "Input")
+  try {
+    return url_encode(text)
+  } catch (e) {
+    throw "url_encode failed: " + str(e)
+  }
+}
+
+fn is_hex_digit(c) {
+  return (c >= "0" && c <= "9") || (c >= "a" && c <= "f") || (c >= "A" && c <= "F")
+}
+
+fn do_url_decode(text) {
+  text = require_non_empty(text, "Input")
+  # pre-validate %HH sequences
+  i = 0
+  n = len(text)
+  while i < n {
+    if text[i] == "%" {
+      if i + 2 >= n {
+        throw "Invalid URL encoding: incomplete % sequence at position " + str(i)
+      }
+      if !is_hex_digit(text[i + 1]) || !is_hex_digit(text[i + 2]) {
+        throw "Invalid URL encoding: bad % sequence at position " + str(i)
+      }
+      i = i + 3
+    } else {
+      i = i + 1
+    }
+  }
+  try {
+    return url_decode(text)
+  } catch (e) {
+    throw "url_decode failed: " + str(e)
+  }
+}
+
+# Avoid reserved keyword `hash` — use digest_sha256 / digest_md5
+fn digest_sha256(text) {
+  text = require_non_empty(text, "Input")
+  try {
+    return sha256(text)
+  } catch (e) {
+    throw "sha256 failed: " + str(e)
+  }
+}
+
+fn digest_md5(text) {
+  text = require_non_empty(text, "Input")
+  try {
+    return md5(text)
+  } catch (e) {
+    throw "md5 failed: " + str(e)
+  }
+}

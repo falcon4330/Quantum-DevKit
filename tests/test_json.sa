@@ -1,0 +1,173 @@
+# @use ../lib/jsonutil.sa
+# JSON tests with assertions. Prints PASS/FAIL per case and a summary at the end.
+
+stats = {"pass": 0, "fail": 0}
+
+fn ok(name) {
+  stats["pass"] = stats["pass"] + 1
+}
+
+fn bad(msg) {
+  stats["fail"] = stats["fail"] + 1
+  print("FAIL: " + msg)
+}
+
+fn t_valid(src) {
+  try {
+    json_check(src)
+    ok(src)
+  } catch (e) {
+    bad("should be VALID: " + src + "   -> " + str(e))
+  }
+}
+
+fn t_invalid(src) {
+  try {
+    json_check(src)
+    bad("should be INVALID: " + src)
+  } catch (e) {
+    ok(src)
+  }
+}
+
+fn t_eq(name, actual, expected) {
+  if actual == expected {
+    ok(name)
+  } else {
+    bad(name + "\n  expected: " + expected + "\n  actual  : " + actual)
+  }
+}
+
+print("=== valid JSON ===")
+t_valid("null")
+t_valid("true")
+t_valid("false")
+t_valid("42")
+t_valid("-3.14")
+t_valid("0")
+t_valid("1e5")
+t_valid("1E-2")
+t_valid("-0.5e+10")
+t_valid("\"hi\"")
+t_valid("\"\"")
+t_valid("[]")
+t_valid("{}")
+t_valid("[1,2,3]")
+t_valid("  [ 1 , 2 ]  ")
+t_valid("{\"a\":1,\"b\":[true,null],\"c\":{\"x\":\"y\"}}")
+t_valid("{\"a\":[],\"b\":{}}")
+t_valid("[[[[1]]]]")
+t_valid("\"\\u00e9\"")
+t_valid("\"a\\nb\\t\\\"q\\\" \\\\ \\/\"")
+t_valid("{\"k\":\"a,{b}:[c]\"}")
+
+print("=== invalid JSON (must be rejected) ===")
+t_invalid("")
+t_invalid("   ")
+t_invalid("{")
+t_invalid("[")
+t_invalid("}")
+t_invalid("]")
+t_invalid("{\"a\"}")
+t_invalid("{\"a\":1,,\"b\":2}")
+t_invalid("{\"a\":1:2}")
+t_invalid("{\"a\":}")
+t_invalid("{\"a\" 1}")
+t_invalid("{,}")
+t_invalid("{a:1}")
+t_invalid("{1:2}")
+t_invalid("{\"a\":1,}")
+t_invalid("[1,]")
+t_invalid("[,1]")
+t_invalid("[1,,2]")
+t_invalid("[1 2]")
+t_invalid("{\"a\":1} x")
+t_invalid("1 2")
+t_invalid("[] []")
+t_invalid("01")
+t_invalid("1.")
+t_invalid("-")
+t_invalid(".5")
+t_invalid("+1")
+t_invalid("tru")
+t_invalid("nul")
+t_invalid("True")
+t_invalid("'a'")
+t_invalid("\"abc")
+t_invalid("\"\\q\"")
+t_invalid("\"\\u12G4\"")
+t_invalid("\"\\u12\"")
+t_invalid("\"a" + chr(9) + "b\"")
+t_invalid("[1,2")
+t_invalid("{\"a\":[1,2}")
+t_invalid("[1,2}")
+
+print("=== error positions ===")
+try {
+  json_check("[1,]")
+  bad("position test did not throw")
+} catch (e) {
+  t_eq("[1,] position", str(e), "JSON error at position 3: trailing comma in array")
+}
+try {
+  json_check("{\"a\":}")
+  bad("position test 2 did not throw")
+} catch (e) {
+  t_eq("{\"a\":} position", str(e), "JSON error at position 5: expected a value before '}'")
+}
+
+print("=== minify ===")
+t_eq("minify spaces", json_minify("{ \"a\" : [ 1 , 2 ] }"), "{\"a\":[1,2]}")
+t_eq("minify keeps key order", json_minify("{\"z\":1,\"a\":2}"), "{\"z\":1,\"a\":2}")
+t_eq("minify keeps spaces inside strings", json_minify("[ \"a b  c\" ]"), "[\"a b  c\"]")
+t_eq("minify keeps \\u escape", json_minify("{\"k\":\"caf\\u00e9\"}"), "{\"k\":\"caf\\u00e9\"}")
+t_eq("minify keeps number text", json_minify("[1.0, 1e2, 0.10, 12345678901234567890]"), "[1.0,1e2,0.10,12345678901234567890]")
+t_eq("minify keeps escaped quote", json_minify("[ \"a\\\"b\" ]"), "[\"a\\\"b\"]")
+
+print("=== pretty-print ===")
+t_eq("indent 2", json_format("{\"b\":2,\"a\":[1,2],\"c\":{\"x\":true}}", 2),
+  "{\n  \"b\": 2,\n  \"a\": [\n    1,\n    2\n  ],\n  \"c\": {\n    \"x\": true\n  }\n}")
+t_eq("indent 4", json_format("[1,{\"a\":null}]", 4),
+  "[\n    1,\n    {\n        \"a\": null\n    }\n]")
+t_eq("empty containers stay inline", json_format("{\"a\":[],\"b\":{}}", 2),
+  "{\n  \"a\": [],\n  \"b\": {}\n}")
+t_eq("top-level empty array", json_format("[]", 2), "[]")
+t_eq("top-level empty object", json_format("  {  }  ", 2), "{}")
+t_eq("scalar", json_format("  42 ", 2), "42")
+t_eq("structure chars inside strings untouched", json_format("{\"s\":\"a,{b}:[c]\"}", 2),
+  "{\n  \"s\": \"a,{b}:[c]\"\n}")
+t_eq("\\u escape untouched", json_format("[\"caf\\u00e9\"]", 2), "[\n  \"caf\\u00e9\"\n]")
+t_eq("indent 0 minifies", json_format("{ \"a\" : 1 }", 0), "{\"a\":1}")
+t_eq("format then minify round-trip", json_minify(json_format("{\"a\":[1,{\"b\":[]}],\"c\":\"x y\"}", 2)), "{\"a\":[1,{\"b\":[]}],\"c\":\"x y\"}")
+
+print("=== format / minify reject invalid input ===")
+try {
+  json_format("{\"a\":1,}", 2)
+  bad("format accepted invalid JSON")
+} catch (e) {
+  ok("format rejects invalid")
+}
+try {
+  json_minify("[1 2]")
+  bad("minify accepted invalid JSON")
+} catch (e) {
+  ok("minify rejects invalid")
+}
+
+print("=== json_kind ===")
+t_eq("kind object", json_kind("{\"a\":1}"), "object")
+t_eq("kind array", json_kind(" [1]"), "array")
+t_eq("kind string", json_kind("\"x\""), "string")
+t_eq("kind number", json_kind("-12"), "number")
+t_eq("kind boolean true", json_kind("true"), "boolean")
+t_eq("kind boolean false", json_kind("false"), "boolean")
+t_eq("kind null", json_kind("null"), "null")
+
+total = stats["pass"] + stats["fail"]
+print("")
+print("RESULT: " + str(stats["pass"]) + " / " + str(total) + " passed")
+if stats["fail"] == 0 {
+  print("ALL JSON TESTS PASSED")
+} else {
+  print("SOME JSON TESTS FAILED: " + str(stats["fail"]))
+}

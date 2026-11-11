@@ -1,0 +1,38 @@
+# Quantum DevKit — UI helpers (menu, prompts, banners)
+
+fn banner() {
+  print("========================================")
+  print("       Quantum DevKit v0.1")
+  print("========================================")
+}
+
+fn print_menu() {
+  print("")
+  print("  1. JSON Formatter")
+  print("  2. JSON Validator")
+  print("  3. Base64 Encoder")
+  print("  4. Base64 Decoder")
+  print("  5. Hash Generator (SHA-256 / MD5)")
+  print("  6. Text Analyzer")
+  print("  7. Case Converter")
+  print("  8. URL Encoder")
+  print("  9. URL Decoder")
+  print(" 10. Number System Converter")
+  print("  0. Exit")
+  print("")
+}
+
+fn prompt(msg) {
+  print(msg)
+  return input()
+}
+
+fn pause() {
+  print("")
+  print("Press Enter to continue...")
+  input()
+}
+
+fn show_error(msg) {
+  print("[ERROR] " + str(msg))
+}

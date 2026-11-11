@@ -1,0 +1,164 @@
+# Quantum DevKit — Number System Converter (manual; no bin()/parseInt base)
+
+fn require_non_empty_num(s, label) {
+  if s == null || str(s).trim() == "" {
+    throw label + " must not be empty"
+  }
+  return str(s).trim()
+}
+
+fn is_digit_char(c) {
+  return c >= "0" && c <= "9"
+}
+
+fn is_hex_char(c) {
+  return (c >= "0" && c <= "9") || (c >= "a" && c <= "f") || (c >= "A" && c <= "F")
+}
+
+fn is_bin_char(c) {
+  return c == "0" || c == "1"
+}
+
+fn char_to_val(c) {
+  if c >= "0" && c <= "9" {
+    return ord(c) - ord("0")
+  }
+  if c >= "a" && c <= "f" {
+    return ord(c) - ord("a") + 10
+  }
+  if c >= "A" && c <= "F" {
+    return ord(c) - ord("A") + 10
+  }
+  throw "Invalid digit: " + c
+}
+
+fn val_to_char(v) {
+  if v < 10 {
+    return chr(ord("0") + v)
+  }
+  return chr(ord("a") + (v - 10))
+}
+
+# Parse integer string in given base (2, 10, 16). Supports optional leading '-'.
+# Returns number (may be negative).
+fn parse_int_base(s, base) {
+  s = require_non_empty_num(s, "Input")
+  negative = false
+  start = 0
+  if s[0] == "-" {
+    negative = true
+    start = 1
+    if len(s) == 1 {
+      throw "Invalid number: lone minus"
+    }
+  } else if s[0] == "+" {
+    start = 1
+    if len(s) == 1 {
+      throw "Invalid number: lone plus"
+    }
+  }
+  # strip optional 0x / 0b prefixes when matching expected base
+  if base == 16 && start + 2 <= len(s) {
+    prefix = s.slice(start, start + 2).lower()
+    if prefix == "0x" {
+      start = start + 2
+    }
+  }
+  if base == 2 && start + 2 <= len(s) {
+    prefix = s.slice(start, start + 2).lower()
+    if prefix == "0b" {
+      start = start + 2
+    }
+  }
+  if start >= len(s) {
+    throw "Invalid number: no digits"
+  }
+
+  value = 0
+  i = start
+  while i < len(s) {
+    c = s[i]
+    if base == 2 {
+      if !is_bin_char(c) {
+        throw "Invalid binary digit at position " + str(i) + ": '" + c + "'"
+      }
+    } else if base == 10 {
+      if !is_digit_char(c) {
+        throw "Invalid decimal digit at position " + str(i) + ": '" + c + "'"
+      }
+    } else if base == 16 {
+      if !is_hex_char(c) {
+        throw "Invalid hex digit at position " + str(i) + ": '" + c + "'"
+      }
+    } else {
+      throw "Unsupported base: " + str(base)
+    }
+    digit = char_to_val(c)
+    if digit >= base {
+      throw "Digit out of range for base " + str(base) + ": '" + c + "'"
+    }
+    value = value * base + digit
+    i = i + 1
+  }
+  if negative {
+    return 0 - value
+  }
+  return value
+}
+
+# Convert non-negative integer to string in base 2 or 16. For negatives, prefix '-'.
+fn format_int_base(n, base) {
+  if base != 2 && base != 10 && base != 16 {
+    throw "Unsupported base: " + str(base)
+  }
+  if n == 0 {
+    return "0"
+  }
+  negative = false
+  if n < 0 {
+    negative = true
+    n = 0 - n
+  }
+  # build digits reversed
+  digits = ""
+  while n > 0 {
+    rem = n % base
+    # integer division
+    n = (n - rem) / base
+    digits = val_to_char(rem) + digits
+  }
+  if negative {
+    return "-" + digits
+  }
+  return digits
+}
+
+fn dec_to_bin(s) {
+  n = parse_int_base(s, 10)
+  return format_int_base(n, 2)
+}
+
+fn dec_to_hex(s) {
+  n = parse_int_base(s, 10)
+  return format_int_base(n, 16)
+}
+
+fn bin_to_dec(s) {
+  n = parse_int_base(s, 2)
+  return str(n)
+}
+
+fn hex_to_dec(s) {
+  n = parse_int_base(s, 16)
+  return str(n)
+}
+
+fn bin_to_hex(s) {
+  n = parse_int_base(s, 2)
+  return format_int_base(n, 16)
+}
+
+fn hex_to_bin(s) {
+  n = parse_int_base(s, 16)
+  return format_int_base(n, 2)
+}

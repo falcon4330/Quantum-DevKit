@@ -1,0 +1,240 @@
+# @use ./lib/ui.sa
+# @use ./lib/codec.sa
+# @use ./lib/text.sa
+# @use ./lib/numbers.sa
+# @use ./lib/jsonutil.sa
+
+# Quantum DevKit — main entry and menu loop
+
+fn run_base64_encode() {
+  print("")
+  print("--- Base64 Encoder ---")
+  text = prompt("Enter text to encode: ")
+  try {
+    result = do_base64_encode(text)
+    print("Result: " + result)
+  } catch (e) {
+    show_error(e)
+  }
+  pause()
+}
+
+fn run_base64_decode() {
+  print("")
+  print("--- Base64 Decoder ---")
+  text = prompt("Enter Base64 to decode: ")
+  try {
+    result = do_base64_decode(text)
+    print("Result: " + result)
+  } catch (e) {
+    show_error(e)
+  }
+  pause()
+}
+
+fn run_url_encode() {
+  print("")
+  print("--- URL Encoder ---")
+  text = prompt("Enter text to URL-encode: ")
+  try {
+    result = do_url_encode(text)
+    print("Result: " + result)
+  } catch (e) {
+    show_error(e)
+  }
+  pause()
+}
+
+fn run_url_decode() {
+  print("")
+  print("--- URL Decoder ---")
+  text = prompt("Enter URL-encoded text: ")
+  try {
+    result = do_url_decode(text)
+    print("Result: " + result)
+  } catch (e) {
+    show_error(e)
+  }
+  pause()
+}
+
+fn run_hash_generator() {
+  print("")
+  print("--- Hash Generator ---")
+  print("  1. SHA-256")
+  print("  2. MD5")
+  alg = prompt("Choose algorithm (1 or 2): ").trim()
+  text = prompt("Enter text to hash: ")
+  try {
+    if alg == "1" {
+      result = digest_sha256(text)
+      print("SHA-256: " + result)
+    } else if alg == "2" {
+      result = digest_md5(text)
+      print("MD5: " + result)
+    } else {
+      throw "Invalid algorithm choice (use 1 or 2)"
+    }
+  } catch (e) {
+    show_error(e)
+  }
+  pause()
+}
+
+fn run_case_converter() {
+  print("")
+  print("--- Case Converter ---")
+  print("  1. UPPER")
+  print("  2. lower")
+  print("  3. Title Case")
+  print("  4. snake_case")
+  print("  5. camelCase")
+  mode = prompt("Choose mode (1-5): ").trim()
+  text = prompt("Enter text: ")
+  try {
+    if mode == "1" {
+      print("Result: " + to_upper(text))
+    } else if mode == "2" {
+      print("Result: " + to_lower(text))
+    } else if mode == "3" {
+      print("Result: " + to_title(text))
+    } else if mode == "4" {
+      print("Result: " + to_snake(text))
+    } else if mode == "5" {
+      print("Result: " + to_camel(text))
+    } else {
+      throw "Invalid mode (use 1-5)"
+    }
+  } catch (e) {
+    show_error(e)
+  }
+  pause()
+}
+
+fn run_text_analyzer() {
+  print("")
+  print("--- Text Analyzer ---")
+  print("Enter text (single line for now):")
+  text = prompt("> ")
+  try {
+    r = analyze_text(text)
+    print("Characters : " + str(r["chars"]))
+    print("Words      : " + str(r["words"]))
+    print("Lines      : " + str(r["lines"]))
+    print("Sentences  : " + str(r["sentences"]))
+    print("Top word   : \"" + r["top_word"] + "\" (" + str(r["top_count"]) + " times)")
+  } catch (e) {
+    show_error(e)
+  }
+  pause()
+}
+
+fn run_number_converter() {
+  print("")
+  print("--- Number System Converter ---")
+  print("  1. Decimal  → Binary")
+  print("  2. Decimal  → Hex")
+  print("  3. Binary   → Decimal")
+  print("  4. Hex      → Decimal")
+  print("  5. Binary   → Hex")
+  print("  6. Hex      → Binary")
+  mode = prompt("Choose conversion (1-6): ").trim()
+  value = prompt("Enter value: ")
+  try {
+    if mode == "1" {
+      print("Result: " + dec_to_bin(value))
+    } else if mode == "2" {
+      print("Result: " + dec_to_hex(value))
+    } else if mode == "3" {
+      print("Result: " + bin_to_dec(value))
+    } else if mode == "4" {
+      print("Result: " + hex_to_dec(value))
+    } else if mode == "5" {
+      print("Result: " + bin_to_hex(value))
+    } else if mode == "6" {
+      print("Result: " + hex_to_bin(value))
+    } else {
+      throw "Invalid mode (use 1-6)"
+    }
+  } catch (e) {
+    show_error(e)
+  }
+  pause()
+}
+
+fn run_json_validator() {
+  print("")
+  print("--- JSON Validator ---")
+  text = prompt("Enter JSON: ")
+  try {
+    json_validate(text)
+    print("Valid JSON.")
+    print("Top-level type: " + json_kind(text))
+  } catch (e) {
+    show_error(e)
+  }
+  pause()
+}
+
+fn run_json_formatter() {
+  print("")
+  print("--- JSON Formatter ---")
+  print("  1. Pretty-print (indent 2)")
+  print("  2. Pretty-print (indent 4)")
+  print("  3. Minify")
+  mode = prompt("Choose mode (1-3): ").trim()
+  text = prompt("Enter JSON: ")
+  try {
+    if mode == "1" {
+      print(json_format(text, 2))
+    } else if mode == "2" {
+      print(json_format(text, 4))
+    } else if mode == "3" {
+      print(json_minify(text))
+    } else {
+      throw "Invalid mode (use 1-3)"
+    }
+  } catch (e) {
+    show_error(e)
+  }
+  pause()
+}
+
+fn run_menu() {
+  banner()
+  running = true
+  while running {
+    print_menu()
+    choice = prompt("Select option (0-10): ").trim()
+
+    if choice == "0" {
+      print("Goodbye.")
+      running = false
+    } else if choice == "1" {
+      run_json_formatter()
+    } else if choice == "2" {
+      run_json_validator()
+    } else if choice == "3" {
+      run_base64_encode()
+    } else if choice == "4" {
+      run_base64_decode()
+    } else if choice == "5" {
+      run_hash_generator()
+    } else if choice == "6" {
+      run_text_analyzer()
+    } else if choice == "7" {
+      run_case_converter()
+    } else if choice == "8" {
+      run_url_encode()
+    } else if choice == "9" {
+      run_url_decode()
+    } else if choice == "10" {
+      run_number_converter()
+    } else {
+      show_error("Invalid choice: " + choice)
+      pause()
+    }
+  }
+}
+
+run_menu()

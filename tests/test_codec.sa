@@ -1,0 +1,61 @@
+# @use ../lib/codec.sa
+
+print("=== Base64 encode ===")
+print(do_base64_encode("Man"))
+print(do_base64_encode("Ma"))
+print(do_base64_encode("M"))
+
+print("=== Base64 decode ===")
+print(do_base64_decode("TWFu"))
+print(do_base64_decode("TWE="))
+print(do_base64_decode("TQ=="))
+
+print("=== URL encode/decode ===")
+print(do_url_encode("a b&c=d"))
+print(do_url_decode("a%20b%26c%3Dd"))
+print(do_url_encode("café"))
+
+print("=== SHA-256 / MD5 ===")
+print(digest_sha256("abc"))
+print(digest_md5("abc"))
+print(digest_sha256("hello"))
+
+print("=== Validation errors ===")
+try {
+  do_base64_encode("")
+  print("FAIL: empty encode should throw")
+} catch (e) {
+  print("OK empty encode: " + str(e))
+}
+try {
+  do_base64_decode("!!!")
+  print("FAIL: bad chars should throw")
+} catch (e) {
+  print("OK bad base64: " + str(e))
+}
+try {
+  do_base64_decode("TWF")
+  print("FAIL: short length should throw")
+} catch (e) {
+  print("OK short base64: " + str(e))
+}
+try {
+  do_url_encode("   ")
+  print("FAIL: whitespace-only should throw")
+} catch (e) {
+  print("OK empty url: " + str(e))
+}
+try {
+  do_url_decode("%ZZ")
+  print("FAIL: bad percent should throw")
+} catch (e) {
+  print("OK bad url: " + str(e))
+}
+try {
+  digest_md5("")
+  print("FAIL: empty md5 should throw")
+} catch (e) {
+  print("OK empty md5: " + str(e))
+}
+
+print("ALL CODEC TESTS DONE")

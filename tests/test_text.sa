@@ -1,0 +1,41 @@
+# @use ../lib/text.sa
+
+print("=== Case Converter ===")
+print(to_upper("Hello World"))
+print(to_lower("Hello World"))
+print(to_title("hello world from quantum"))
+print(to_title("  hello   world  "))
+print(to_snake("Hello World"))
+print(to_snake("helloWorld"))
+print(to_snake("Hello-World_Test"))
+print(to_camel("hello world"))
+print(to_camel("hello_world-test"))
+print(to_camel("Hello World"))
+
+print("=== Text Analyzer ===")
+r = analyze_text("Hello world. Hello Quantum! How are you?")
+print("chars=" + str(r["chars"]))
+print("words=" + str(r["words"]))
+print("lines=" + str(r["lines"]))
+print("sentences=" + str(r["sentences"]))
+print("top=" + r["top_word"] + " count=" + str(r["top_count"]))
+
+r2 = analyze_text("one two two three three three")
+print("top2=" + r2["top_word"] + " count=" + str(r2["top_count"]))
+print("words2=" + str(r2["words"]))
+
+print("=== Validation ===")
+try {
+  to_upper("")
+  print("FAIL empty")
+} catch (e) {
+  print("OK: " + str(e))
+}
+try {
+  analyze_text("   ")
+  print("FAIL empty analyze")
+} catch (e) {
+  print("OK analyze: " + str(e))
+}
+
+print("ALL TEXT TESTS DONE")
