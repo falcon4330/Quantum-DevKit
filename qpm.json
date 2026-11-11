@@ -1,0 +1,7 @@
+﻿{
+  "name": "quantum-devkit",
+  "version": "1.0.0",
+  "description": "Menu-driven developer utilities written in Quantum.",
+  "keywords": ["quantum", "json", "base64", "hash", "cli"],
+  "license": "MIT"
+}
